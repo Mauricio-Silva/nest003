@@ -1,4 +1,13 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateActorDto } from './create-actor.dto';
+import { Genre } from './../enum/actor.enum';
+import { IsAlpha, IsEnum, IsNumber } from 'class-validator';
 
-export class UpdateActorDto extends PartialType(CreateActorDto) {}
+export class UpdateActorDto {
+  @IsAlpha()
+  name: string;
+
+  @IsNumber()
+  age: number;
+
+  @IsEnum(Genre)
+  genre: Genre;
+}

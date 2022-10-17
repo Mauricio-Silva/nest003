@@ -1,26 +1,82 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { CreateActorDto } from './dto/create-actor.dto';
 import { UpdateActorDto } from './dto/update-actor.dto';
+import { Actor } from './entities/actor.entity';
 
 @Injectable()
 export class ActorService {
-  create(createActorDto: CreateActorDto) {
-    return 'This action adds a new actor';
+  constructor(
+    @InjectRepository(Actor)
+    private actorRepository: Repository<Actor>,
+  ) {}
+
+  async create(createActorDto: CreateActorDto): Promise<CreateActorDto> {
+    try {
+      await this.actorRepository.save(createActorDto);
+      delete createActorDto.id;
+      return createActorDto;
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Error in saving the actor in database',
+      );
+    }
   }
 
-  findAll() {
-    return `This action returns all actor`;
+  async findAll(): Promise<Actor[]> {
+    try {
+      return await this.actorRepository.find();
+    } catch (error) {
+      throw new InternalServerErrorException('Impossible to find all actors');
+    }
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} actor`;
+  async findOneById(id: string): Promise<Actor> {
+    const actor = this.actorRepository
+      .createQueryBuilder('actor')
+      .select(['actor.name', 'actor.age', 'actor.genre'])
+      .where('actor.id = :id', { id: id })
+      .getOne();
+    if (!actor) throw new NotFoundException('Actor not found');
+    return actor;
   }
 
-  update(id: number, updateActorDto: UpdateActorDto) {
-    return `This action updates a #${id} actor`;
+  async findOneByName(name: string): Promise<Actor> {
+    const actor = this.actorRepository
+      .createQueryBuilder('actor')
+      .select(['actor.name', 'actor.age', 'actor.genre'])
+      .where('actor.name = :name', { name: name })
+      .getOne();
+    if (!actor) throw new NotFoundException('Actor not found');
+    return actor;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} actor`;
+  async update(id: string, updateActorDto: UpdateActorDto): Promise<Actor> {
+    const actor = await this.actorRepository.findOneBy({ id });
+    const { name, age, genre } = updateActorDto;
+    actor.name = name ? name : actor.name;
+    actor.age = age ? age : actor.age;
+    actor.genre = genre ? genre : actor.genre;
+    try {
+      await this.actorRepository.save(actor);
+      return this.findOneById(id);
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Error in saving the actor in database',
+      );
+    }
+  }
+
+  async remove(id: string): Promise<string> {
+    const result = await this.actorRepository.delete({ id });
+    if (result.affected === 0) {
+      throw new NotFoundException('Not found an actor with the informed ID');
+    }
+    return 'The Actor was successfully Removed';
   }
 }
